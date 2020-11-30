@@ -1,0 +1,17 @@
+module lens.com
+
+go 1.15
+
+require (
+	github.com/gorilla/csrf v1.7.0
+	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/schema v1.2.0
+	github.com/jackc/pgx/v4 v4.9.2 // indirect
+	github.com/lib/pq v1.8.0
+	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392
+	golang.org/x/text v0.3.4 // indirect
+	golang.org/x/tools/gopls v0.5.3 // indirect
+	gorm.io/driver/postgres v1.0.5
+	gorm.io/driver/sqlite v1.1.4 // indirect
+	gorm.io/gorm v1.20.7
+)
