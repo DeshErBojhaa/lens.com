@@ -1,6 +1,9 @@
 package models
 
 import (
+	"log"
+	"os"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -39,6 +42,13 @@ func WithImage() ServicesConfig {
 	}
 }
 
+func WithLog(prefix string) ServicesConfig {
+	return func(s *Services) error {
+		s.Log = log.New(os.Stdout, prefix, log.LstdFlags|log.Lshortfile|log.Lmicroseconds)
+		return nil
+	}
+}
+
 func NewServices(cfgs ...ServicesConfig) (*Services, error) {
 	var s Services
 	for _, cfg := range cfgs {
@@ -54,6 +64,7 @@ type Services struct {
 	User    UserService
 	Image   ImageService
 	db      *gorm.DB
+	Log     *log.Logger
 }
 
 func (s *Services) Close() error {

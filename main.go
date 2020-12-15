@@ -3,7 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"lens.com/controllers"
 	"lens.com/middleware"
@@ -14,12 +18,13 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func main() {
+func run() error {
 	boolPtr := flag.Bool("prod", false, "Provide this flag in production. This ensures that a .config file is provided before the application starts.")
 	flag.Parse()
 	cfg := LoadConfig(*boolPtr)
 	dbCfg := cfg.Database
 	services, err := models.NewServices(
+		models.WithLog(cfg.Prefix),
 		models.WithGorm(dbCfg.ConnectionInfo()),
 		models.WithUser(cfg.Pepper, cfg.HMACKey),
 		models.WithGallery(),
@@ -27,7 +32,7 @@ func main() {
 	)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer services.Close()
 	services.AutoMigrate()
@@ -52,6 +57,7 @@ func main() {
 	r.Handle("/contact", staticC.Contact).Methods("GET")
 	r.Handle("/login", usersC.LoginView).Methods("GET")
 	r.HandleFunc("/login", usersC.Login).Methods("POST")
+	r.HandleFunc("/logout", requireUserMw.ApplyFn(usersC.Logout)).Methods("POST")
 	r.HandleFunc("/signup", usersC.New).Methods("GET")
 	r.HandleFunc("/signup", usersC.Create).Methods("POST")
 
@@ -76,6 +82,34 @@ func main() {
 	r.HandleFunc("/galleries/{id:[0-9]+}/images/{filename}/delete", requireUserMw.ApplyFn(galleriesC.ImageDelete)).Methods("POST")
 	r.HandleFunc("/galleries/{id:[0-9]+}", galleriesC.Show).Methods("GET").Name(controllers.ShowGallery)
 
-	fmt.Printf("Starting Server at :%d", cfg.Port)
-	http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), csrfMw(userMw.Apply(r)))
+	fmt.Printf("Starting Server at :%d\n", cfg.Port)
+
+	shutDown := make(chan os.Signal, 1)
+	signal.Notify(shutDown, os.Interrupt, syscall.SIGTERM)
+
+	fatalErr := make(chan error, 1)
+
+	go func() {
+		fatalErr <- http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), csrfMw(userMw.Apply(r)))
+	}()
+	select {
+	case err = <-fatalErr:
+		return fmt.Errorf("Fatal error: %+v", err)
+	case sig := <-shutDown:
+		// Do additional cleanup
+		if sig == syscall.SIGSTOP {
+			services.Log.Panicln("os integrity issue occurred")
+			return fmt.Errorf("shutdown command from os")
+		}
+		return fmt.Errorf("shutdown command from user")
+	}
+}
+
+func main() {
+	log := log.New(os.Stdout, "lens: ", log.LstdFlags|log.Lshortfile|log.Lmicroseconds)
+	if err := run(); err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	os.Exit(0)
 }

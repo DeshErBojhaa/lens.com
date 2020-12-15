@@ -35,6 +35,7 @@ func DefaultPostgresConfig() PostgresConfig {
 }
 
 type Config struct {
+	Prefix   string         `json:"prefix"`
 	Port     int            `json:"port"`
 	Env      string         `json:"env"`
 	Pepper   string         `json:"pepper"`
@@ -48,6 +49,7 @@ func (c Config) IsProd() bool {
 
 func DefaultConfig() Config {
 	return Config{
+		Prefix:   "lens",
 		Port:     3000,
 		Env:      "dev",
 		Pepper:   "ajfa98fG^3n4t0urvq",

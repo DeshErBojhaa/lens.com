@@ -2,7 +2,9 @@ package controllers
 
 import (
 	"net/http"
+	"time"
 
+	"lens.com/context"
 	"lens.com/models"
 	"lens.com/rand"
 	"lens.com/views"
@@ -99,6 +101,23 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/galleries", http.StatusFound)
+}
+
+func (u *Users) Logout(w http.ResponseWriter, r *http.Request) {
+	cookie := http.Cookie{
+		Expires:  time.Now(),
+		Value:    "",
+		Name:     "remember_token",
+		HttpOnly: true,
+	}
+	http.SetCookie(w, &cookie)
+
+	user := context.User(r.Context())
+	token, _ := rand.RememberToken()
+	user.Remember = token
+
+	u.us.Update(user)
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func (u *Users) signIn(w http.ResponseWriter, user *models.User) error {
